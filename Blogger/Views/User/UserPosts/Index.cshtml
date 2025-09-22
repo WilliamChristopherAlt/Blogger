@@ -1,0 +1,92 @@
+﻿@using Blogger.Models.Database
+@model IEnumerable<Post>
+
+@{
+    ViewData["Title"] = "All Posts";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-newspaper text-primary"></i>
+                    All Posts
+                </h2>
+                <div class="text-muted">
+                    Page @ViewBag.CurrentPage of @ViewBag.TotalPages
+                </div>
+            </div>
+
+            @if (Model.Any())
+            {
+                <div class="posts-container">
+                    @foreach (var post in Model)
+                    {
+                        @await Html.PartialAsync("_PostCard.cshtml", post)
+                    }
+                </div>
+
+                <!-- Pagination -->
+                @if (ViewBag.TotalPages > 1)
+                {
+                    <nav aria-label="Posts pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            @if (ViewBag.HasPreviousPage)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link" href="@Url.Action("Index", new { page = ViewBag.CurrentPage - 1 })">
+                                        <i class="fas fa-chevron-left"></i> Previous
+                                    </a>
+                                </li>
+                            }
+
+                            @for (int i = Math.Max(1, ViewBag.CurrentPage - 2); i <= Math.Min(ViewBag.TotalPages, ViewBag.CurrentPage + 2); i++)
+                            {
+                                <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                    <a class="page-link" href="@Url.Action("Index", new { page = i })">@i</a>
+                                </li>
+                            }
+
+                            @if (ViewBag.HasNextPage)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link" href="@Url.Action("Index", new { page = ViewBag.CurrentPage + 1 })">
+                                        Next <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-newspaper fa-5x text-muted"></i>
+                    </div>
+                    <h4 class="text-muted">No posts found</h4>
+                    <p class="text-muted">Be the first to share something!</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh posts every 30 seconds
+        setInterval(function() {
+            // You can implement auto-refresh logic here if needed
+        }, 30000);
+
+        // Smooth scroll to top when pagination is clicked
+        $('.pagination a').click(function(e) {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 300);
+        });
+    </script>
+}

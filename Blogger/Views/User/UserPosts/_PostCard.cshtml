@@ -1,0 +1,620 @@
+﻿@using Blogger.Models.Database
+@model Blogger.Models.Database.Post
+
+<div class="card post-card mb-4 shadow-sm" data-post-id="@Model.Id">
+    <!-- Post Header -->
+    <div class="card-header bg-white border-0 pb-2">
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                @{
+                    var selectedProfilePhoto = Model.User?.UserPhotos?.FirstOrDefault(up => up.IsSelected == true && up.PhotoTypeId == 1);
+                }
+                @if (selectedProfilePhoto != null)
+                {
+                    <img src="~/user_images/user_profiles/@selectedProfilePhoto.PhotoUrl"
+                         alt="@Model.User.Username"
+                         class="rounded-circle"
+                         style="width: 48px; height: 48px; object-fit: cover;">
+                }
+                else
+                {
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                         style="width: 48px; height: 48px;">
+                        <i class="fas fa-user fa-sm"></i>
+                    </div>
+                }
+            </div>
+            <div class="flex-grow-1 ms-3">
+                <h6 class="mb-0 fw-semibold">
+                    @Model.User.Username
+                    @if (Model.SharedPostId != null)
+                    {
+                        <span class="text-muted fw-normal">shared a post</span>
+                    }
+                </h6>
+                <small class="text-muted">
+                    @(Model.CreatedAt?.ToString("MMM dd, yyyy 'at' h:mm tt") ?? "Unknown date")
+                    @if (Model.UpdatedAt != null)
+                    {
+                        <span class="badge bg-light text-dark ms-2">Edited</span>
+                    }
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Content -->
+    <div class="card-body pt-2">
+        @if (!string.IsNullOrEmpty(Model.Content))
+        {
+            <div class="post-content mb-3">
+                @Html.Raw(Html.Encode(Model.Content).Replace("\n", "<br/>"))
+
+                <!-- Hashtags -->
+                @if (Model.Hashtags != null && Model.Hashtags.Any())
+                {
+                    <div class="mt-3">
+                        @foreach (var hashtag in Model.Hashtags)
+                        {
+                            <span class="badge bg-light text-primary me-2 px-2 py-1">#@hashtag.Name</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Shared Post -->
+        @if (Model.SharedPost != null)
+        {
+            <div class="border rounded-3 p-3 mb-3 bg-light">
+                <div class="d-flex align-items-center mb-2">
+                    <small class="text-muted">
+                        <i class="fas fa-share me-1"></i>
+                        Originally posted by <strong>@Model.SharedPost.User.Username</strong>
+                        on @(Model.SharedPost.CreatedAt?.ToString("MMM dd, yyyy") ?? "Unknown date")
+                    </small>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.SharedPost.Content))
+                {
+                    <div class="shared-content">
+                        @Html.Raw(Html.Encode(Model.SharedPost.Content).Replace("\n", "<br/>"))
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Post Media Gallery -->
+        @if (Model.PostMedias != null && Model.PostMedias.Any())
+        {
+            var visualMedias = Model.PostMedias.Where(m =>
+            m.MediaType?.Name?.ToLower().Contains("jpg") == true ||
+            m.MediaType?.Name?.ToLower().Contains("jpeg") == true ||
+            m.MediaType?.Name?.ToLower().Contains("png") == true ||
+            m.MediaType?.Name?.ToLower().Contains("gif") == true ||
+            m.MediaType?.Name?.ToLower().Contains("mp4") == true ||
+            m.MediaType?.Name?.ToLower() == "image" ||
+            m.MediaType?.Name?.ToLower() == "video"
+            ).ToList();
+
+            var audioFiles = Model.PostMedias.Where(m =>
+            m.MediaType?.Name?.ToLower().Contains("mp3") == true ||
+            m.MediaType?.Name?.ToLower() == "audio"
+            ).ToList();
+
+            var otherFiles = Model.PostMedias.Except(visualMedias).Except(audioFiles).ToList();
+
+            <!-- Visual Media Gallery (Images/Videos) -->
+            @if (visualMedias.Any())
+            {
+                <div class="post-media-gallery mb-3" data-post-id="@Model.Id">
+                    <div class="media-container position-relative" style="width: 100%; aspect-ratio: 16/10; overflow: hidden; border-radius: 12px; background: #f8f9fa;">
+                        @for (int i = 0; i < visualMedias.Count; i++)
+                        {
+                            var media = visualMedias[i];
+                            string mediaPath = "";
+                            string mediaType = media.MediaType?.Name?.ToLower() ?? "";
+
+                            if (mediaType.Contains("jpg") || mediaType.Contains("jpeg") || mediaType.Contains("png") || mediaType == "image")
+                            {
+                                mediaPath = Url.Content($"~/post_medias/images/{media.MediaUrl}");
+                            }
+                            else if (mediaType.Contains("mp4") || mediaType == "video")
+                            {
+                                mediaPath = Url.Content($"~/post_medias/videos/{media.MediaUrl}");
+                            }
+                            else if (mediaType.Contains("gif"))
+                            {
+                                mediaPath = Url.Content($"~/post_medias/gifs/{media.MediaUrl}");
+                            }
+
+                            <div class="media-item @(i == 0 ? "active" : "")"
+                                 data-index="@i"
+                                 data-media-path="@mediaPath"
+                                 data-media-type="@(mediaType.Contains("mp4") || mediaType == "video" || mediaPath.Contains("/videos/") ? "video" : "image")"
+                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; opacity: @(i == 0 ? "1" : "0"); transform: translateX(@(i == 0 ? "0" : "20px"));">
+                                @if (mediaType.Contains("jpg") || mediaType.Contains("jpeg") || mediaType.Contains("png") || mediaType == "image" || mediaType.Contains("gif"))
+                                {
+                                    <img src="@mediaPath"
+                                         class="img-fluid media-clickable"
+                                         alt="Post media"
+                                         style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                                         onclick="openLightbox(@Model.Id, @i)">
+                                }
+                                else if (mediaType.Contains("mp4") || mediaType == "video")
+                                {
+                                    <video class="w-100 media-clickable"
+                                           style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                                           onclick="openLightbox(@Model.Id, @i)"
+                                           preload="metadata">
+                                        <source src="@mediaPath" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                }
+                                else
+                                {
+                                    <!-- Fallback for unrecognized media types -->
+                                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted"
+                                         style="cursor: pointer;"
+                                         onclick="openLightbox(@Model.Id, @i)">
+                                        <i class="fas fa-file fa-3x"></i>
+                                        <p class="mt-2">Media file</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (visualMedias.Count > 1)
+                        {
+                            <button class="btn media-nav-btn media-prev"
+                                    onclick="navigateMedia(@Model.Id, 'prev')"
+                                    style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); z-index: 10; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; font-size: 16px; background: rgba(255, 255, 255, 0.9); color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s ease;">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="btn media-nav-btn media-next"
+                                    onclick="navigateMedia(@Model.Id, 'next')"
+                                    style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 10; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; font-size: 16px; background: rgba(255, 255, 255, 0.9); color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s ease;">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+
+                            <div class="media-counter" style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500;">
+                                <span class="current-media">1</span> / @visualMedias.Count
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Audio Files -->
+            @foreach (var media in audioFiles)
+            {
+                var mediaPath = Url.Content($"~/post_medias/audios/{media.MediaUrl}");
+                <div class="mb-3">
+                    <audio controls class="w-100" style="border-radius: 8px;">
+                        <source src="@mediaPath" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            }
+
+            <!-- Other Files -->
+            @foreach (var media in otherFiles)
+            {
+                <div class="border rounded-3 p-3 mb-2 bg-light">
+                    <i class="fas fa-file me-2"></i>
+                    <a href="@media.MediaUrl" target="_blank" class="text-decoration-none">
+                        View @(media.MediaType?.Name ?? "File")
+                    </a>
+                </div>
+            }
+        }
+
+        <!-- Poll -->
+        @if (Model.Polls != null && Model.Polls.Any())
+        {
+            var poll = Model.Polls.First();
+            <div class="poll-container border rounded-3 p-3 mb-3 bg-light">
+                <h6 class="mb-3 fw-semibold">
+                    <i class="fas fa-poll me-2"></i>
+                    @poll.Question
+                </h6>
+
+                @if (poll.PollOptions != null && poll.PollOptions.Any())
+                {
+                    int totalVotes = 0;
+                    var optionVotes = new Dictionary<int, int>();
+
+                    foreach (var option in poll.PollOptions)
+                    {
+                        var voteCount = option.PollVotes?.Count ?? 0;
+                        optionVotes[option.Id] = voteCount;
+                        totalVotes += voteCount;
+                    }
+
+                    foreach (var option in poll.PollOptions.OrderBy(po => po.OptionOrder))
+                    {
+                        var voteCount = optionVotes.ContainsKey(option.Id) ? optionVotes[option.Id] : 0;
+                        var percentage = totalVotes > 0 ? (int)Math.Round((double)voteCount * 100 / totalVotes) : 0;
+
+                        <div class="poll-option mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-medium">@option.OptionText</span>
+                                <small class="text-muted">@voteCount votes (@percentage%)</small>
+                            </div>
+                            <div class="progress" style="height: 8px; border-radius: 4px;">
+                                <div class="progress-bar bg-primary" style="width: @percentage%; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+                    }
+
+                    <small class="text-muted mt-2 d-block">
+                        Total votes: @totalVotes
+                        @if (poll.ExpiresAt != null)
+                        {
+                            <span class="ms-2">Expires: @(poll.ExpiresAt?.ToString("MMM dd, yyyy") ?? "No expiration")</span>
+                        }
+                    </small>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Post Actions -->
+    <div class="card-footer bg-white border-0 pt-0">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <!-- Reactions -->
+                <div class="btn-group me-3" role="group">
+                    @{
+                        var reactionCounts = new Dictionary<string, int>();
+                        if (Model.PostReactions != null && Model.PostReactions.Any())
+                        {
+                            foreach (var reaction in Model.PostReactions.Where(pr => pr.ReactionType != null))
+                            {
+                                var reactionName = reaction.ReactionType.Name;
+                                if (reactionCounts.ContainsKey(reactionName))
+                                {
+                                    reactionCounts[reactionName]++;
+                                }
+                                else
+                                {
+                                    reactionCounts[reactionName] = 1;
+                                }
+                            }
+                        }
+                    }
+
+                    <button type="button" class="btn btn-light btn-sm reaction-btn me-2"
+                            data-post-id="@Model.Id" data-reaction-type="1"
+                            style="border: 1px solid #e9ecef; border-radius: 20px; padding: 6px 12px;">
+                        <i class="fas fa-thumbs-up me-1"></i>
+                        <span class="reaction-count">@(reactionCounts.ContainsKey("Like") ? reactionCounts["Like"] : 0)</span>
+                    </button>
+
+                    <button type="button" class="btn btn-light btn-sm reaction-btn me-2"
+                            data-post-id="@Model.Id" data-reaction-type="2"
+                            style="border: 1px solid #e9ecef; border-radius: 20px; padding: 6px 12px;">
+                        <i class="fas fa-thumbs-down me-1"></i>
+                        <span class="reaction-count">@(reactionCounts.ContainsKey("Dislike") ? reactionCounts["Dislike"] : 0)</span>
+                    </button>
+
+                    <button type="button" class="btn btn-light btn-sm reaction-btn me-2"
+                            data-post-id="@Model.Id" data-reaction-type="3"
+                            style="border: 1px solid #e9ecef; border-radius: 20px; padding: 6px 12px;">
+                        <i class="fas fa-star me-1"></i>
+                        <span class="reaction-count">@(reactionCounts.ContainsKey("Favorite") ? reactionCounts["Favorite"] : 0)</span>
+                    </button>
+                </div>
+
+                <!-- Comments -->
+                <button type="button" class="btn btn-light btn-sm me-2"
+                        data-bs-toggle="collapse" data-bs-target="#comments-@Model.Id"
+                        style="border: 1px solid #e9ecef; border-radius: 20px; padding: 6px 12px;">
+                    <i class="fas fa-comment me-1"></i>
+                    <span>@(Model.Comments?.Count ?? 0) Comments</span>
+                </button>
+
+                <!-- Share -->
+                <button type="button" class="btn btn-light btn-sm"
+                        style="border: 1px solid #e9ecef; border-radius: 20px; padding: 6px 12px;">
+                    <i class="fas fa-share me-1"></i>
+                    Share
+                </button>
+            </div>
+
+            <div class="text-muted">
+                <small>
+                    <i class="fas fa-users me-1"></i>
+                    @(Model.AudienceType?.Name ?? "Public")
+                </small>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        @if (Model.Comments != null && Model.Comments.Any())
+        {
+            <div class="collapse mt-3" id="comments-@Model.Id">
+                <div class="border-top pt-3">
+                    @{
+                        var activeComments = Model.Comments.Where(c => c.IsDeleted == false).OrderBy(c => c.CreatedAt).Take(3);
+                    }
+                    @foreach (var comment in activeComments)
+                    {
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0 me-2">
+                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                                     style="width: 32px; height: 32px; font-size: 12px;">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="bg-light rounded-3 p-2">
+                                    <small class="fw-semibold">@comment.User?.Username</small>
+                                    <div class="mt-1">@Html.Raw(Html.Encode(comment.Content).Replace("\n", "<br/>"))</div>
+                                </div>
+                                <small class="text-muted ms-2">
+                                    @(comment.CreatedAt?.ToString("MMM dd, h:mm tt") ?? "Unknown date")
+                                    @if (comment.CommentReactions != null && comment.CommentReactions.Any())
+                                    {
+                                        <span class="ms-2">
+                                            @comment.CommentReactions.Count
+                                            @(comment.CommentReactions.Count == 1 ? "reaction" : "reactions")
+                                        </span>
+                                    }
+                                </small>
+                            </div>
+                        </div>
+                    }
+
+                    @{
+                        var totalActiveComments = Model.Comments.Count(c => c.IsDeleted == false);
+                    }
+                    @if (totalActiveComments > 3)
+                    {
+                        <div class="text-center">
+                            <a href="@Url.Action("Details", new { id = Model.Id })" class="btn btn-link btn-sm text-decoration-none">
+                                View all @totalActiveComments comments
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Media Lightbox Modal -->
+<div id="mediaLightbox" class="media-lightbox" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; backdrop-filter: blur(10px);">
+    <div class="lightbox-backdrop" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+    <div class="lightbox-content" style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+        <button class="lightbox-close" onclick="closeLightbox()" style="position: absolute; top: 24px; right: 24px; background: rgba(255,255,255,0.1); border: none; color: white; width: 44px; height: 44px; border-radius: 22px; cursor: pointer; z-index: 10001; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="lightbox-media-container" style="max-width: 90%; max-height: 90%; display: flex; align-items: center; justify-content: center;">
+            <!-- Media will be inserted here -->
+        </div>
+        <div class="lightbox-nav" style="position: absolute; top: 50%; transform: translateY(-50%); width: 100%; display: flex; justify-content: space-between; padding: 0 24px; pointer-events: none;">
+            <button class="lightbox-prev" onclick="navigateLightbox('prev')" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 50px; height: 50px; border-radius: 25px; cursor: pointer; pointer-events: auto; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="lightbox-next" onclick="navigateLightbox('next')" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 50px; height: 50px; border-radius: 25px; cursor: pointer; pointer-events: auto; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="lightbox-counter" style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 12px 20px; border-radius: 20px; font-weight: 500;">
+            <span class="lightbox-current">1</span> / <span class="lightbox-total">1</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .media-nav-btn:hover {
+        background: rgba(255, 255, 255, 1) !important;
+        transform: translateY(-50%) scale(1.05) !important;
+    }
+
+    .lightbox-close:hover, .lightbox-prev:hover, .lightbox-next:hover {
+        background: rgba(255,255,255,0.2) !important;
+        transform: scale(1.1) !important;
+    }
+
+    .reaction-btn:hover {
+        background: #f8f9fa !important;
+        border-color: #dee2e6 !important;
+    }
+
+    .reaction-btn.active {
+        background: #e3f2fd !important;
+        border-color: #2196f3 !important;
+        color: #2196f3 !important;
+    }
+</style>
+
+<script>
+    // Global variables to track lightbox state
+    var currentLightboxPostId = null;
+    var currentLightboxIndex = 0;
+    var lightboxMediaItems = [];
+    var keyboardListenerAttached = false;
+
+    // Navigate through media items in gallery with smooth transitions
+    function navigateMedia(postId, direction) {
+        var gallery = document.querySelector('[data-post-id="' + postId + '"] .media-container');
+        var mediaItems = gallery.querySelectorAll('.media-item');
+        var currentActiveItem = gallery.querySelector('.media-item.active');
+        var currentIndex = parseInt(currentActiveItem.getAttribute('data-index'));
+
+        var newIndex;
+        if (direction === 'next') {
+            newIndex = (currentIndex + 1) % mediaItems.length;
+        } else {
+            newIndex = (currentIndex - 1 + mediaItems.length) % mediaItems.length;
+        }
+
+        // Animate out current item
+        currentActiveItem.style.opacity = '0';
+        currentActiveItem.style.transform = 'translateX(' + (direction === 'next' ? '-20px' : '20px') + ')';
+
+        setTimeout(function() {
+            // Hide current item
+            currentActiveItem.classList.remove('active');
+
+            // Show new item
+            var newItem = gallery.querySelector('[data-index="' + newIndex + '"]');
+            newItem.classList.add('active');
+            newItem.style.transform = 'translateX(' + (direction === 'next' ? '20px' : '-20px') + ')';
+            newItem.style.opacity = '0';
+
+            // Animate in new item
+            setTimeout(function() {
+                newItem.style.opacity = '1';
+                newItem.style.transform = 'translateX(0)';
+            }, 10);
+
+            // Update counter
+            var counter = gallery.querySelector('.current-media');
+            if (counter) {
+                counter.textContent = newIndex + 1;
+            }
+        }, 150);
+    }
+
+    // Open lightbox
+    function openLightbox(postId, startIndex) {
+        currentLightboxPostId = postId;
+        currentLightboxIndex = startIndex;
+
+        // Get all media items for this post in the correct order
+        var gallery = document.querySelector('[data-post-id="' + postId + '"] .media-container');
+        var mediaItems = gallery.querySelectorAll('.media-item');
+        lightboxMediaItems = [];
+
+        // Sort media items by their data-index attribute to ensure correct order
+        var sortedMediaItems = Array.from(mediaItems).sort(function(a, b) {
+            return parseInt(a.getAttribute('data-index')) - parseInt(b.getAttribute('data-index'));
+        });
+
+        sortedMediaItems.forEach(function(item) {
+            lightboxMediaItems.push({
+                path: item.getAttribute('data-media-path'),
+                type: item.getAttribute('data-media-type')
+            });
+        });
+
+        // Show lightbox
+        document.getElementById('mediaLightbox').style.display = 'block';
+
+        // Load current media
+        loadLightboxMedia(currentLightboxIndex);
+
+        // Update navigation visibility
+        updateLightboxNavigation();
+
+        // Attach keyboard listener only once when lightbox opens
+        attachLightboxKeyboardListener();
+    }
+
+    // Close lightbox
+    function closeLightbox() {
+        document.getElementById('mediaLightbox').style.display = 'none';
+
+        // Stop any playing videos
+        var videos = document.querySelectorAll('#mediaLightbox video');
+        videos.forEach(function(video) {
+            video.pause();
+        });
+
+        // Remove keyboard listener when lightbox closes
+        removeLightboxKeyboardListener();
+    }
+
+    // Navigate in lightbox
+    function navigateLightbox(direction) {
+        if (lightboxMediaItems.length <= 1) return;
+
+        if (direction === 'next') {
+            currentLightboxIndex = (currentLightboxIndex + 1) % lightboxMediaItems.length;
+        } else {
+            currentLightboxIndex = (currentLightboxIndex - 1 + lightboxMediaItems.length) % lightboxMediaItems.length;
+        }
+
+        loadLightboxMedia(currentLightboxIndex);
+    }
+
+    // Load media in lightbox
+    function loadLightboxMedia(index) {
+        var mediaItem = lightboxMediaItems[index];
+        var container = document.querySelector('.lightbox-media-container');
+
+        // Enhanced video detection - check for video type or mp4 extension
+        var isVideo = mediaItem.type === 'video' ||
+                     mediaItem.path.toLowerCase().includes('.mp4') ||
+                     mediaItem.path.toLowerCase().includes('/videos/');
+
+        if (isVideo) {
+            container.innerHTML = '<video controls autoplay style="max-width: 100%; max-height: 100%; border-radius: 8px;"><source src="' + mediaItem.path + '" type="video/mp4">Your browser does not support the video tag.</video>';
+        } else {
+            container.innerHTML = '<img src="' + mediaItem.path + '" alt="Media" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">';
+        }
+
+        // Update counter
+        document.querySelector('.lightbox-current').textContent = index + 1;
+        document.querySelector('.lightbox-total').textContent = lightboxMediaItems.length;
+    }
+
+    // Update lightbox navigation
+    function updateLightboxNavigation() {
+        var navElement = document.querySelector('.lightbox-nav');
+        if (lightboxMediaItems.length <= 1) {
+            navElement.style.display = 'none';
+        } else {
+            navElement.style.display = 'flex';
+        }
+    }
+
+    // Keyboard event handler for lightbox
+    function handleLightboxKeyboard(e) {
+        var lightbox = document.getElementById('mediaLightbox');
+        if (lightbox.style.display !== 'block') return;
+
+        switch(e.key) {
+            case 'Escape':
+                e.preventDefault();
+                closeLightbox();
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                navigateLightbox('prev');
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                navigateLightbox('next');
+                break;
+        }
+    }
+
+    // Attach keyboard listener
+    function attachLightboxKeyboardListener() {
+        if (!keyboardListenerAttached) {
+            document.addEventListener('keydown', handleLightboxKeyboard);
+            keyboardListenerAttached = true;
+        }
+    }
+
+    // Remove keyboard listener
+    function removeLightboxKeyboardListener() {
+        if (keyboardListenerAttached) {
+            document.removeEventListener('keydown', handleLightboxKeyboard);
+            keyboardListenerAttached = false;
+        }
+    }
+
+    // Document ready equivalent
+    document.addEventListener('DOMContentLoaded', function() {
+        // Close lightbox when clicking backdrop
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('lightbox-backdrop')) {
+                closeLightbox();
+            }
+        });
+    });
+</script>
